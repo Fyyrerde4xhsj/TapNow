@@ -610,26 +610,45 @@
                 });
             }
 
-            function handleWithdraw() {
-                const amount = parseInt(withdrawAmountInput.value);
-                withdrawMessage.style.display = 'block';
-                if (isNaN(amount) || amount <= 0) {
-                    withdrawMessage.textContent = 'Invalid amount.';
-                    withdrawMessage.style.color = 'var(--danger-color)';
-                    return;
-                }
-                if (amount > userData.points) {
-                    withdrawMessage.textContent = 'Insufficient points.';
-                    withdrawMessage.style.color = 'var(--danger-color)';
-                    return;
-                }
-                userData.points -= amount;
-                saveData();
-                updateAllDisplays();
-                withdrawMessage.textContent = `Swap successful!`;
-                withdrawMessage.style.color = 'var(--success-color)';
-                withdrawAmountInput.value = '';
-            }
+            // Assume you have Firebase initialized as 'firebase'
+function handleWithdraw() {
+  const amount = parseInt(withdrawAmountInput.value);
+  const method = withdrawMethod.value;
+  withdrawMessage.style.display = "block";
+
+  if (isNaN(amount) || amount <= 0) {
+    withdrawMessage.textContent = "Invalid amount.";
+    withdrawMessage.style.color = "red";
+    return;
+  }
+  if (amount > userData.points) {
+    withdrawMessage.textContent = "Insufficient points.";
+    withdrawMessage.style.color = "red";
+    return;
+  }
+  // Deduct points
+  userData.points -= amount;
+  saveData();
+
+  // Create withdrawal request in Firebase
+  firebase.database().ref("withdrawals").push({
+    userId: currentUser.uid,
+    username: userData.username,
+    amount: amount,
+    method: method,
+    status: "Pending",
+    requestedAt: new Date().toISOString()
+  }).then(() => {
+    withdrawMessage.textContent = "Withdrawal request submitted!";
+    withdrawMessage.style.color = "green";
+    withdrawAmountInput.value = "";
+  }).catch((error) => {
+    withdrawMessage.textContent = "Error: " + error.message;
+    withdrawMessage.style.color = "red";
+  });
+
+  updateAllDisplays();
+}
 
             // --- Daily Reward ---
             function checkDailyRewardStatus() {
@@ -824,4 +843,5 @@
         });
     </script>
 </body>
+
 </html>
