@@ -5,17 +5,36 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Admin Panel</title>
 <style>
-  body { font-family: Arial, sans-serif; background: #f5f5f5; margin: 20px; }
-  h2 { color: #333; }
-  table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-  th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-  th { background: #eee; }
-  input, select, textarea { padding: 5px; margin: 5px 0; width: 100%; max-width: 300px; }
-  button { padding: 8px 12px; background: #007bff; color: white; border: none; cursor: pointer; }
-  button:disabled { background: #aaa; }
-  .section { background: white; padding: 15px; margin-bottom: 30px; border-radius: 8px; }
-  label { font-weight: bold; display: block; margin-top: 10px; }
-</style>
+  <body>
+  <div style="display: flex; min-height:100vh;">
+    <!-- Sidebar Navigation START -->
+    <nav style="width:220px; background: #21273c; color: #fff; min-height:100vh; padding:24px 0 0 0;">
+      <h2 style="font-size:22px; font-weight:700; padding:0 20px 20px 20px;">RewardMe</h2>
+      <ul style="list-style: none; padding: 0;">
+        <li style="margin:20px 0; padding: 0 20px;"><a href="#dashboard" style="color:#fff; text-decoration:none;">Dashboard</a></li>
+        <li style="margin:20px 0; padding: 0 20px;"><a href="#users" style="color:#fff; text-decoration:none;">Users</a></li>
+        <li style="margin:20px 0; padding: 0 20px;"><a href="#withdrawals" style="color:#fff; text-decoration:none;">Withdrawals</a></li>
+        <li style="margin:20px 0; padding: 0 20px;"><a href="#notifications" style="color:#fff; text-decoration:none;">Notifications</a></li>
+        <li style="margin:20px 0; padding: 0 20px;"><a href="#settings" style="color:#fff; text-decoration:none;">App Settings</a></li>
+      </ul>
+    </nav>
+    <!-- Sidebar Navigation END -->
+
+    <!-- Main Content START -->
+    <div style="flex:1; padding:40px;">
+      <!-- Your main dashboard, users, withdrawals, notifications, and app settings sections go here -->
+      
+      <!-- Example: App Settings Section -->
+      <div id="settings">
+        <!-- ... your App Settings form and content here ... -->
+      </div>
+      
+      <!-- Similar sections for dashboard, users, withdrawals, notifications... -->
+    </div>
+    <!-- Main Content END -->
+  </div>
+</body>
+
 <script type="module">
   const firebaseConfig = {
     apiKey: "",
@@ -219,3 +238,4 @@
 </body>
         </html>
         
+
