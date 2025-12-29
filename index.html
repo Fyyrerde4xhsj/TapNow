@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Emoji Tapper | Play & Earn</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.6.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.1/firebase-database.js"></script>
+    
+    <style>
+        :root { --bg: #0d1a3a; --card: #1e293b; --accent: #00e5ff; --text: #ffffff; --success: #22c55e; --pending: #f59e0b; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+        
+        /* Header & Nav */
+        header { padding: 15px; text-align: center; border-bottom: 1px solid rgba(0,229,255,0.2); background: rgba(13,26,58,0.95); z-index: 50; }
+        #bottomNav { position: fixed; bottom: 0; width: 100%; height: 70px; display: flex; justify-content: space-around; align-items: center; background: #070f25; border-top: 1px solid rgba(0,229,255,0.2); z-index: 100; }
+        .nav-item { color: #a0aec0; font-size: 0.7rem; text-align: center; flex: 1; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .nav-item.active { color: var(--accent); }
+        
+        /* Layout */
+        .page { display: none; flex: 1; overflow-y: auto; padding: 20px 20px 100px 20px; }
+        .page.active { display: block; }
+        .card { background: var(--card); border-radius: 12px; padding: 15px; margin-bottom: 15px; border: 1px solid rgba(0,229,255,0.1); }
+        
+        /* Elements */
+        .btn { width: 100%; padding: 12px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; background: var(--accent); color: #0d1a3a; transition: 0.2s; }
+        .btn:disabled { background: #4a5568; opacity: 0.6; cursor: not-allowed; color: #ccc; }
+        input, select { width: 100%; padding: 12px; background: #070f25; border: 1px solid rgba(0,229,255,0.2); color: white; border-radius: 8px; margin-top: 8px; outline: none; }
+        
+        /* Coin */
+        #coinBtn { 
+            width: 220px; height: 220px; border-radius: 50%; 
+            background: radial-gradient(circle, #ffe082, #ffb300); 
+            margin: 30px auto; display: flex; align-items: center; justify-content: center; 
+            font-size: 80px; box-shadow: 0 0 50px rgba(255,179,0,0.4); 
+            cursor: pointer; user-select: none; border: 6px solid rgba(255,255,255,0.2); 
+            position: relative;
+        }
+        #coinBtn:active { transform: scale(0.94); }
+
+        /* Effects */
+        .plus-one { position: absolute; color: var(--accent); font-weight: bold; font-size: 1.5rem; pointer-events: none; animation: floatUp 0.8s forwards; z-index: 10; }
+        @keyframes floatUp { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-100px); opacity: 0; } }
+        
+        .sparkle { position: absolute; width: 8px; height: 8px; background: white; border-radius: 50%; pointer-events: none; animation: burst 0.6s forwards; }
+        @keyframes burst { 0% { transform: translate(0,0) scale(1); opacity: 1; } 100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; } }
+
+        /* Modal */
+        #ad-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); z-index: 999; display: none; align-items: center; justify-content: center; flex-direction: column; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div style="font-size: 0.75rem; color: #a0aec0; letter-spacing: 1px;">TOTAL POINTS</div>
+        <h1 id="balance" style="margin: 5px 0;">0 Pts</h1>
+        <div id="usdBalance" style="color: var(--success); font-weight: bold;">$0.00</div>
+    </header>
+
+    <!-- TAP PAGE -->
+    <div id="tapPage" class="page active">
+        <div id="coinBtn">⚡</div>
+        <div style="width: 80%; margin: 0 auto; text-align: center;">
+            <div style="width: 100%; height: 10px; background: #1a365d; border-radius: 5px; overflow: hidden;">
+                <div id="energyFill" style="height: 100%; background: var(--accent); width: 100%; transition: width 0.3s;"></div>
+            </div>
+            <p id="energyText" style="margin-top: 8px; font-size: 0.8rem; color: #a0aec0;">1000 / 1000</p>
+        </div>
+    </div>
+
+    <!-- TASKS PAGE -->
+    <div id="tasksPage" class="page">
+        <h3>Tasks</h3>
+        <div id="taskList"></div>
+    </div>
+
+    <!-- REFER PAGE -->
+    <div id="referPage" class="page">
+        <h3>Refer Friends</h3>
+        <div class="card">
+            <p style="color: #a0aec0; font-size: 0.9rem;">Your Unique ID:</p>
+            <h2 id="myId" style="color: var(--accent); letter-spacing: 2px;">LOADING...</h2>
+            <p id="refRewardText" style="margin-top:10px; font-size:0.85rem; color: var(--success);"></p>
+        </div>
+        <div class="card">
+            <label>Enter Friend's Code:</label>
+            <input type="text" id="refInput" placeholder="e.g. U123456">
+            <button class="btn" onclick="claimReferral()" style="margin-top:15px">Claim Bonus</button>
+        </div>
+    </div>
+
+    <!-- WALLET PAGE -->
+    <div id="withdrawPage" class="page">
+        <h3>Withdraw Funds</h3>
+        <div class="card">
+            <label>Method</label>
+            <select id="wdMethod">
+                <option value="PayPal">PayPal</option>
+                <option value="Binance USDT">Binance (USDT)</option>
+                <option value="Bkash">Bkash</option>
+                <option value="Nagad">Nagad</option>
+            </select>
+            <input type="text" id="wdAddress" placeholder="Wallet Address / Phone">
+            <input type="number" id="wdAmount" placeholder="Points to withdraw">
+            <button class="btn" onclick="requestPayout()" style="margin-top:15px">Submit Request</button>
+        </div>
+        <h4>Transaction History</h4>
+        <div id="wdHistory"></div>
+    </div>
+
+    <!-- BOTTOM NAV -->
+    <nav id="bottomNav">
+        <div class="nav-item active" onclick="showPage('tapPage', this)"><span>⚡</span>Tap</div>
+        <div class="nav-item" onclick="showPage('tasksPage', this)"><span>📋</span>Tasks</div>
+        <div class="nav-item" onclick="showPage('referPage', this)"><span>👥</span>Refer</div>
+        <div class="nav-item" onclick="showPage('withdrawPage', this)"><span>💰</span>Wallet</div>
+    </nav>
+    
+    <!-- AD MODAL -->
+    <div id="ad-modal">
+        <h2 style="color:white; margin-bottom:10px;">Ad Break</h2>
+        <p style="color:#ccc;">Loading content...</p>
+        <div style="margin-top:20px;" class="loader"></div>
+    </div>
+
+    <script>
+        // 1. CONFIGURATION
+        const firebaseConfig = {
+            apiKey: "AIzaSyAyh1954PFWziwV-DsLsIL9RlYYK2AmmZY",
+            authDomain: "tapme-7b658.firebaseapp.com",
+            databaseURL: "https://tapme-7b658-default-rtdb.firebaseio.com",
+            projectId: "tapme-7b658",
+            storageBucket: "tapme-7b658.firebasestorage.app",
+            messagingSenderId: "835907097562",
+            appId: "1:835907097562:web:5d9a02911c119488f6a6e3"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // 2. USER ID MANAGEMENT
+        let uid = localStorage.getItem('et_uid');
+        if(!uid) {
+            uid = 'U' + Math.floor(100000 + Math.random() * 900000);
+            localStorage.setItem('et_uid', uid);
+        }
+        document.getElementById('myId').innerText = uid;
+
+        // 3. GLOBAL VARIABLES
+        let userData = null;
+        let settings = { coinValue: 10000, waitTime: 15, refReward: 500, adClickThreshold: 100 };
+        let clickCounter = 0;
+        let taskInterval = null;
+
+        // 4. MONETAG INJECTION
+        db.ref('monetag').on('value', s => {
+            const m = s.val();
+            if(m && m.enabled && m.zoneId) {
+                if(!document.querySelector(`script[data-zone="${m.zoneId}"]`)){
+                    const sc = document.createElement('script');
+                    sc.src = 'https://alwingulla.com/tag.min.js';
+                    sc.dataset.zone = m.zoneId;
+                    document.head.appendChild(sc);
+                }
+            }
+        });
+
+        // 5. DATA SYNC
+        db.ref('settings').on('value', s => {
+            settings = s.val() || settings;
+            if(document.getElementById('refRewardText')) {
+                document.getElementById('refRewardText').innerText = `Referrer gets ${settings.refReward} Pts!`;
+            }
+            updateUI();
+        });
+
+        db.ref('users/' + uid).on('value', s => {
+            if(!s.val()) {
+                // Initialize new user
+                db.ref('users/' + uid).set({ 
+                    points: 0, 
+                    energy: 1000, 
+                    completed: [], 
+                    claimedRef: false 
+                });
+            } else {
+                userData = s.val();
+                updateUI();
+            }
+        });
+
+        function updateUI() {
+            if(!userData) return;
+            // Balance
+            document.getElementById('balance').innerText = (userData.points || 0).toLocaleString() + " Pts";
+            const usd = (userData.points || 0) / (settings.coinValue || 10000);
+            document.getElementById('usdBalance').innerText = "$" + usd.toFixed(4);
+            
+            // Energy
+            const en = userData.energy !== undefined ? userData.energy : 1000;
+            document.getElementById('energyFill').style.width = (en / 10) + "%";
+            document.getElementById('energyText').innerText = Math.floor(en) + " / 1000";
+            
+            // Only update dynamic lists if active
+            const activePage = document.querySelector('.page.active');
+            if(activePage.id === 'withdrawPage') renderHistory();
+            if(activePage.id === 'tasksPage') renderTasks();
+        }
+
+        // 6. TAPPING LOGIC (Functional)
+        function handleTap(e) {
+            if(!userData || userData.energy < 1) return;
+
+            // Prevent default zooming
+            // e.preventDefault(); // removed to allow scrolling if needed, handled in listener
+
+            const x = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+            const y = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+            
+            createEffects(x, y);
+
+            // Database Transaction
+            db.ref('users/' + uid).transaction(u => {
+                if(u) {
+                    if(u.energy > 0) {
+                        u.points = (u.points || 0) + 1;
+                        u.energy = u.energy - 1;
+                    }
+                }
+                return u;
+            });
+
+            // Ad Trigger
+            clickCounter++;
+            if(clickCounter >= (settings.adClickThreshold || 100)) {
+                showAdModal();
+                clickCounter = 0;
+            }
+        }
+
+        const btn = document.getElementById('coinBtn');
+        btn.addEventListener('mousedown', handleTap);
+        btn.addEventListener('touchstart', (e) => { e.preventDefault(); handleTap(e); });
+
+        function createEffects(x, y) {
+            // Text Float
+            const el = document.createElement('div');
+            el.className = 'plus-one';
+            el.innerText = '+1';
+            el.style.left = x + 'px';
+            el.style.top = y + 'px';
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 800);
+
+            // Sparkles
+            for(let i=0; i<5; i++) {
+                const s = document.createElement('div');
+                s.className = 'sparkle';
+                s.style.left = x + 'px';
+                s.style.top = y + 'px';
+                s.style.setProperty('--tx', (Math.random()-0.5)*100 + 'px');
+                s.style.setProperty('--ty', (Math.random()-0.5)*100 + 'px');
+                document.body.appendChild(s);
+                setTimeout(() => s.remove(), 600);
+            }
+        }
+
+        function showAdModal() {
+            const m = document.getElementById('ad-modal');
+            m.style.display = 'flex';
+            setTimeout(() => { m.style.display = 'none'; }, 3000);
+        }
+
+        // 7. TASK SYSTEM (Persistent & Timer)
+        function renderTasks() {
+            db.ref('tasks').once('value', s => {
+                const list = document.getElementById('taskList');
+                list.innerHTML = "";
+                
+                if(!s.exists()) {
+                    list.innerHTML = "<p style='text-align:center; color:#888'>No tasks available</p>";
+                    return;
+                }
+
+                s.forEach(child => {
+                    const t = child.val();
+                    const tid = child.key;
+                    
+                    if(userData.completed && userData.completed.includes(tid)) return;
+
+                    const savedTime = localStorage.getItem('task-' + tid);
+                    const now = Date.now();
+                    const card = document.createElement('div');
+                    card.className = "card";
+
+                    let btnHTML = "";
+                    
+                    if(!savedTime) {
+                        // Not started
+                        btnHTML = `<button class="btn" onclick="startTask('${tid}', '${t.link1}')">Step 1: Open Link</button>`;
+                    } else if (now < parseInt(savedTime)) {
+                        // Waiting
+                        const left = Math.ceil((parseInt(savedTime) - now)/1000);
+                        btnHTML = `<button class="btn" disabled id="btn-${tid}">Wait ${left}s...</button>`;
+                    } else {
+                        // Ready to claim
+                        btnHTML = `<button class="btn" style="background:var(--success)" onclick="finishTask('${tid}', '${t.link2}')">Step 2: Go to Destination</button>`;
+                    }
+
+                    card.innerHTML = `
+                        <div style="display:flex; justify-content:space-between; align-items:center">
+                            <b>${t.title}</b>
+                            <span style="color:var(--accent); font-weight:bold">+${t.reward}</span>
+                        </div>
+                        <div style="margin-top:10px">${btnHTML}</div>
+                    `;
+                    list.appendChild(card);
+                });
+
+                // Live Timer Update
+                if(taskInterval) clearInterval(taskInterval);
+                taskInterval = setInterval(() => {
+                    document.querySelectorAll('button[id^="btn-"]').forEach(btn => {
+                        const tid = btn.id.replace('btn-', '');
+                        const end = parseInt(localStorage.getItem('task-'+tid));
+                        const now = Date.now();
+                        if(now >= end) {
+                            renderTasks(); // Refresh to show claim button
+                        } else {
+                            btn.innerText = `Wait ${Math.ceil((end-now)/1000)}s...`;
+                        }
+                    });
+                }, 1000);
+            });
+        }
+
+        function startTask(tid, link) {
+            window.open(link, '_blank');
+            const wait = (settings.waitTime || 15) * 1000;
+            localStorage.setItem('task-'+tid, Date.now() + wait);
+            renderTasks();
+        }
+
+        function finishTask(tid, link) {
+            window.open(link, '_blank');
+            const done = userData.completed || [];
+            if(!done.includes(tid)) done.push(tid);
+            
+            db.ref('tasks/'+tid).once('value', s => {
+                const r = s.val().reward || 0;
+                db.ref('users/'+uid).update({
+                    points: (userData.points || 0) + r,
+                    completed: done
+                });
+            });
+            localStorage.removeItem('task-'+tid);
+        }
+
+        // 8. REFERRAL SYSTEM
+        function claimReferral() {
+            if(!userData) return alert("Loading data...");
+            const input = document.getElementById('refInput').value.trim();
+            if(!input) return alert("Enter an ID");
+            if(input === uid) return alert("Cannot refer yourself");
+            if(userData.claimedRef) return alert("Bonus already claimed");
+
+            db.ref('users/'+input).once('value', s => {
+                if(s.exists()) {
+                    // Reward referrer
+                    const refPoints = (s.val().points || 0) + (settings.refReward || 500);
+                    db.ref('users/'+input).update({ points: refPoints });
+                    
+                    // Reward user
+                    db.ref('users/'+uid).update({ 
+                        points: (userData.points || 0) + 100, 
+                        claimedRef: true 
+                    });
+                    alert("Referral Applied! +100 Points");
+                } else {
+                    alert("ID not found");
+                }
+            });
+        }
+
+        // 9. WITHDRAW SYSTEM
+        function requestPayout() {
+            if(!userData) return;
+            const amt = parseInt(document.getElementById('wdAmount').value);
+            const addr = document.getElementById('wdAddress').value.trim();
+            const meth = document.getElementById('wdMethod').value;
+
+            if(!amt || !addr) return alert("Fill all fields");
+            if(amt <= 0) return alert("Invalid amount");
+            if(amt > userData.points) return alert("Insufficient points");
+
+            db.ref('payouts').push({
+                uid: uid,
+                amt: amt,
+                addr: addr,
+                method: meth,
+                status: 'pending',
+                date: Date.now()
+            });
+
+            db.ref('users/'+uid).update({ points: userData.points - amt });
+            alert("Request Submitted!");
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const h = document.getElementById('wdHistory');
+            h.innerHTML = "Loading...";
+            
+            db.ref('payouts').orderByChild('uid').equalTo(uid).once('value', s => {
+                h.innerHTML = "";
+                if(!s.exists()) { h.innerHTML = "<p style='text-align:center;color:#666'>No history</p>"; return; }
+                
+                const arr = [];
+                s.forEach(c => arr.push(c.val()));
+                arr.reverse().forEach(p => {
+                    const color = p.status === 'paid' ? 'var(--success)' : 'var(--pending)';
+                    h.innerHTML += `
+                        <div class="card" style="display:flex; justify-content:space-between; font-size:0.8rem">
+                            <span>${p.method}<br>${p.amt} Pts</span>
+                            <span style="color:${color}; font-weight:bold; text-align:right">${p.status.toUpperCase()}<br>${new Date(p.date).toLocaleDateString()}</span>
+                        </div>
+                    `;
+                });
+            });
+        }
+
+        // 10. NAV & LOOP
+        function showPage(id, el) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            el.classList.add('active');
+            
+            if(id === 'tasksPage') renderTasks();
+            if(id === 'withdrawPage') renderHistory();
+        }
+
+        // Energy Refill Loop
+        setInterval(() => {
+            if(userData && userData.energy < 1000) {
+                db.ref('users/'+uid).update({ energy: userData.energy + 1 });
+            }
+        }, 2000); // +1 every 2 seconds
+    </script>
+</body>
+</html>
